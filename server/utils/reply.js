@@ -1,0 +1,85 @@
+"use strict";
+
+const HTTPStatus = require('http-status');
+
+const replyFactory = function(response) {
+    const res = response;
+    
+    const reply = function(data) {
+        if (data.statusCode !== undefined)
+            res.status(data.statusCode);
+    
+        res.json(data);
+    };
+    
+    const replyMethodNotAllowed = function(message){
+      reply({
+          statusCode: HTTPStatus.METHOD_NOT_ALLOWED,
+          message
+      });  
+    };
+    
+    const replyBadRequest = function(message) {
+        reply({
+            statusCode: HTTPStatus.BAD_REQUEST,
+            message
+        });
+    };
+
+    const replyForbidden = function(message) {
+        reply({
+            statusCode: HTTPStatus.FORBIDDEN,
+            message
+        });
+    };
+
+    const replyNotFound = function(message) {
+        reply({
+            statusCode: HTTPStatus.NOT_FOUND,
+            message
+        });
+    };
+
+    const replyInternalServerError = function(message) {
+        reply({
+            statusCode: HTTPStatus.INTERNAL_SERVER_ERROR,
+            message
+        });
+    };
+
+    const replySuccess = function(message) {
+        reply({
+            statusCode: HTTPStatus.OK,
+            message
+        });
+    };
+
+    const replyResult = function(results, totalQueryLength, pageNum, itemsPerPage, metadata) {
+        res.set("query_total_count", totalQueryLength);
+        res.set("page", pageNum);
+        res.set("per_page", itemsPerPage);
+
+        if (metadata === "true")
+            reply({
+                statusCode: HTTPStatus.OK,
+                page: pageNum,
+                itemsPerPage,
+                queryTotalCount: totalQueryLength,
+                data: results
+            });
+        else
+            reply(results);
+    };
+
+    return Object.freeze({
+        replyBadRequest,
+        replyForbidden,
+        replyNotFound,
+        replyInternalServerError,
+        replySuccess,
+        replyResult,
+        replyMethodNotAllowed
+    });
+};
+
+module.exports = replyFactory;

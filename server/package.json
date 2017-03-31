@@ -1,0 +1,14 @@
+{
+  "name": "survey-api",
+  "version": "0.0.0",
+  "description": "An API for information about market surveys.",
+  "main": "server.js",
+  "repository": "",
+  "author": "Pedro Miguel Pereira Serrano Martins",
+  "dependencies": {
+    "body-parser": "^1.17.1",
+    "express": "^4.14.1",
+    "http-status": "^1.0.0",
+    "mongoose": "^4.9.2"
+  }
+}

@@ -3,6 +3,7 @@
 const express = require("express");
 const bodyParser = require('body-parser');
 const fs = require("fs");
+const generator = require("co");
 
 const models = require("../db/models.js");
 const camelCaseFactory = require("../utils/camelCase.js");
@@ -135,21 +136,28 @@ module.exports = (function() {
         const surveyJSON = req.body;
         const sender = replyFactory(res);
 
-        Survey.findOne({
+        const saveNew = function*() {
+            const survey = yield Survey.findOne({
                 _id: surveyJSON.id
-            })
-            .then(survey => {
-                if (survey !== null)
-                    sender.replyMethodNotAllowed("That survey already exists. Don't you want to update it instead? If so use PUT HTTP verb");
-                else
-                    return new Survey(surveyJSON).save();
-            })
-            .then(() => {
-                sender.replySuccess("Object saved with success!");
-            })
-            .catch(error => {
-                sender.replyBadRequest(error);
             });
+
+            if (survey !== null) {
+                sender.replyConflict("Cannot save new Survey. Survey already exists.");
+                return;
+            }
+
+            try {
+                yield new Survey(surveyJSON).save();
+                sender.replyCreated("Object saved with success!");
+            }
+            catch (error) {
+                sender.replyBadRequest(`Object validation or storage failed: ${error}`);
+            }
+        };
+
+        generator(saveNew)
+            .catch(sender.replyInternalServerError);
+
     });
 
     /**
@@ -385,21 +393,20 @@ module.exports = (function() {
             }, {});
 
 
-        Survey.find(queryObj, {
-                __v: 0
-            })
-            .limit(itemsPerPage)
-            .skip(itemsPerPage * pageNum)
-            .then(surveys => {
-                if (surveys.length === 0)
-                    sender.replyNotFound("There are no results matching your query.");
-                else
-                    Survey.count(queryObj)
-                    .then(number => {
-                        sender.replyResult(surveys, number, pageNum, itemsPerPage, req.query.metadata);
-                    });
-            })
-            .catch(sender.replyBadRequest);
+        const query = function*() {
+
+            const surveys = yield Survey.find(queryObj, { __v: 0 })
+                .limit(itemsPerPage)
+                .skip(itemsPerPage * pageNum);
+
+            if (surveys.length === 0)
+                sender.replyNotFound("There are no results matching your query.");
+            else
+                sender.replyResult(surveys, yield Survey.count(queryObj), pageNum, itemsPerPage, req.query.metadata);
+        };
+
+        generator(query)
+            .catch(error => sender.replyInternalServerError(`There was an error processing your query: ${error}`));
     });
 
     return api;

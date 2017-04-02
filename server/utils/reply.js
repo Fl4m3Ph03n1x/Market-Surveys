@@ -4,21 +4,28 @@ const HTTPStatus = require('http-status');
 
 const replyFactory = function(response) {
     const res = response;
-    
+
     const reply = function(data) {
         if (data.statusCode !== undefined)
             res.status(data.statusCode);
-    
+
         res.json(data);
     };
-    
-    const replyMethodNotAllowed = function(message){
-      reply({
-          statusCode: HTTPStatus.METHOD_NOT_ALLOWED,
-          message
-      });  
+
+    const replyCreated = function(message) {
+        reply({
+            statusCode: HTTPStatus.CREATED,
+            message
+        });
     };
-    
+
+    const replyConflict = function(message) {
+        reply({
+            statusCode: HTTPStatus.CONFLICT,
+            message
+        });
+    };
+
     const replyBadRequest = function(message) {
         reply({
             statusCode: HTTPStatus.BAD_REQUEST,
@@ -78,7 +85,8 @@ const replyFactory = function(response) {
         replyInternalServerError,
         replySuccess,
         replyResult,
-        replyMethodNotAllowed
+        replyConflict,
+        replyCreated
     });
 };
 

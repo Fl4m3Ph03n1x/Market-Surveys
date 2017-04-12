@@ -3,9 +3,8 @@
 const express = require("express");
 const bodyParser = require('body-parser');
 const fs = require("fs");
-const generator = require("co");
 
-const models = require("../db/models.js");
+const modelFactory = require("../db/models.js");
 const camelCaseFactory = require("../utils/camelCase.js");
 const replyFactory = require("../utils/reply.js");
 
@@ -28,8 +27,9 @@ const SERVER_CONFIG = "config/serverConfig.json";
  */
 module.exports = (function() {
     const {
-        Survey
-    } = models();
+        Survey,
+        Country
+    } = modelFactory.getModels();
 
     const {
         pagination
@@ -46,6 +46,33 @@ module.exports = (function() {
      */
     api.get("/", (req, res) => {
         res.redirect("/makert-surveys-api/docs/api/index.html");
+    });
+
+    api.post("/Countries/", (req, res) => {
+        const countryJSON = req.body;
+        const sender = replyFactory(res);
+
+        const saveNew = async function() {
+            const country = await Country.findOne({
+                "isoCodes.alpha2": countryJSON.isoCodes.alpha2
+            });
+
+            if (country !== null) {
+                sender.replyConflict("Cannot save new Country. Country already exists.");
+                return;
+            }
+
+            try {
+                await new Country(countryJSON).save();
+                sender.replyCreated("Country added successfuly!");
+            }
+            catch (error) {
+                sender.replyBadRequest(`Country validation or storage failed: ${error}`);
+            }
+        };
+
+        saveNew()
+            .catch(sender.replyInternalServerError);
     });
 
     /**
@@ -111,7 +138,7 @@ module.exports = (function() {
      * @apiErrorExample InvalidSurvey-Example-Response:
      *      HTTP/1.1 400 Bad Request
      *      {
-     *          "statusCode": 500,
+     *          "statusCode": 400,
      *          "message": {
      *              "errors": {
      *                  "subject": {
@@ -131,13 +158,23 @@ module.exports = (function() {
      *          }
      *      }
      * 
+     * @apiError    ConflictingSurvey   
+     *              The Survey object you are trying to insert is already in the
+     *              DB. You are likely trying to update it, so you should use 
+     *              HTTP PUT verb instead.
+     * @apiErrorExample ConflictingSurvey-Example-Response:
+     *      HTTP/1.1 409 Conflict
+     *      {
+     *          "statusCode": 409,
+     *          "message": "Cannot save new Survey. Survey already exists."
+     *      }
      */
     api.post("/Surveys/", (req, res) => {
         const surveyJSON = req.body;
         const sender = replyFactory(res);
 
-        const saveNew = function*() {
-            const survey = yield Survey.findOne({
+        const saveNew = async function() {
+            const survey = await Survey.findOne({
                 _id: surveyJSON.id
             });
 
@@ -147,7 +184,7 @@ module.exports = (function() {
             }
 
             try {
-                yield new Survey(surveyJSON).save();
+                await new Survey(surveyJSON).save();
                 sender.replyCreated("Object saved with success!");
             }
             catch (error) {
@@ -155,9 +192,8 @@ module.exports = (function() {
             }
         };
 
-        generator(saveNew)
+        saveNew()
             .catch(sender.replyInternalServerError);
-
     });
 
     /**
@@ -284,15 +320,15 @@ module.exports = (function() {
      *          ]
      *      }
      * 
-     *  @apiError    BadPage The page parameter is < 0.
+     *  @apiError    BadPage The page parameter is < 1.
      *  @apiErrorExample BadPage-Response:
      *      HTTP/1.1 400 Bad Request
      *      {
      *          "statusCode": 400,
-     *          "message": "The pagination parameter 'page' must be >= 0"
+     *          "message": "The pagination parameter 'page' must be > 0"
      *      }
      * 
-     *  @apiError BadItemsPerPage    The itemsPerPage parameter is <= 0.
+     *  @apiError BadItemsPerPage    The itemsPerPage parameter is < 1.
      *  @apiErrorExample BadItemsPerPage-Response:
      *      HTTP/1.1 400 Bad Request
      *      {
@@ -346,7 +382,7 @@ module.exports = (function() {
      */
     api.get("/Surveys/", (req, res) => {
 
-        const pageNum = +(req.query.page || 0);
+        const pageNum = +(req.query.page || 1);
         const itemsPerPage = +(req.query.itemsPerPage || pagination.itemsPerPage);
         const sender = replyFactory(res);
 
@@ -355,8 +391,8 @@ module.exports = (function() {
             return;
         }
 
-        if (pageNum < 0) {
-            sender.replyBadRequest("The pagination parameter 'page' must be >= 0");
+        if (pageNum < 1) {
+            sender.replyBadRequest("The pagination parameter 'page' must be > 0");
             return;
         }
 
@@ -392,20 +428,19 @@ module.exports = (function() {
                 return searchQuery;
             }, {});
 
-
-        const query = function*() {
-
-            const surveys = yield Survey.find(queryObj, { __v: 0 })
-                .limit(itemsPerPage)
-                .skip(itemsPerPage * pageNum);
+        const query = async function() {
+            const surveys = await Survey.paginate(queryObj, {
+                page: pageNum,
+                limit: itemsPerPage
+            });
 
             if (surveys.length === 0)
                 sender.replyNotFound("There are no results matching your query.");
             else
-                sender.replyResult(surveys, yield Survey.count(queryObj), pageNum, itemsPerPage, req.query.metadata);
+                sender.replyResult(surveys.docs, surveys.total, pageNum, itemsPerPage, req.query.metadata);
         };
 
-        generator(query)
+        query()
             .catch(error => sender.replyInternalServerError(`There was an error processing your query: ${error}`));
     });
 

@@ -7,9 +7,9 @@
   "author": "Pedro Miguel Pereira Serrano Martins",
   "dependencies": {
     "body-parser": "^1.17.1",
-    "co": "^4.6.0",
     "express": "^4.14.1",
     "http-status": "^1.0.0",
-    "mongoose": "^4.9.2"
+    "mongoose": "^4.9.4",
+    "mongoose-paginate": "^5.0.3"
   }
 }

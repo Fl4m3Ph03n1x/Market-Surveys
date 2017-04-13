@@ -23,7 +23,7 @@ const surveySchema = {
             validator: function(val) {
                 return modelFactory.getModels().Country
                     .findOne({
-                        "isoCodes.alpha2": val
+                        $or: [{"isoCodes.alpha2": val}, {"isoCodes.alpha3": val}]
                     })
                     .then(res => {
                         return res !== null;

@@ -48,13 +48,47 @@ module.exports = (function() {
         res.redirect("/makert-surveys-api/docs/api/index.html");
     });
 
+    api.delete("/Countries/:id", (req, res)=> {
+        const sender = replyFactory(res);
+        
+        const removeCountry = async function() {
+            const country = await Country.findById(req.params.id);
+            await country.remove();
+            sender.replySuccess("Country removed successfuly");    
+        };
+        removeCountry()
+            .catch(error => sender.replyInternalServerError(`There was an error processing your query: ${error}`));
+    });
+    
+    api.get("/Countries/:id", (req, res) => {
+        const sender = replyFactory(res);
+        
+        const getCountries = async function() {
+            sender.replySuccess(await Country.findById(req.params.id));    
+        };
+        getCountries()
+            .catch(error => sender.replyInternalServerError(`There was an error processing your query: ${error}`));
+    });
+
+    api.get("/Countries", (req, res) => {
+        const sender = replyFactory(res);
+        
+        const getCountries = async function() {
+            sender.replySuccess(await Country.find());    
+        };
+
+        getCountries()
+            .catch(error => sender.replyInternalServerError(`There was an error processing your query: ${error}`));
+    });
+
     api.post("/Countries/", (req, res) => {
         const countryJSON = req.body;
         const sender = replyFactory(res);
 
         const saveNew = async function() {
             const country = await Country.findOne({
-                "isoCodes.alpha2": countryJSON.isoCodes.alpha2
+                "isoCodes.alpha2": countryJSON.isoCodes.alpha2,
+                "isoCodes.alpha3": countryJSON.isoCodes.alpha3
             });
 
             if (country !== null) {
@@ -63,8 +97,8 @@ module.exports = (function() {
             }
 
             try {
-                await new Country(countryJSON).save();
-                sender.replyCreated("Country added successfuly!");
+                const newCountry = await new Country(countryJSON).save();
+                sender.replyCreated(newCountry);
             }
             catch (error) {
                 sender.replyBadRequest(`Country validation or storage failed: ${error}`);

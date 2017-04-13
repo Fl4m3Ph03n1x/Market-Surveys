@@ -50,9 +50,16 @@ module.exports = (function() {
 
     api.delete("/Countries/:id", (req, res)=> {
         const sender = replyFactory(res);
+        const countryId = req.params.id;
         
         const removeCountry = async function() {
-            const country = await Country.findById(req.params.id);
+            const country = await Country.findById(countryId);
+            
+            if(country === null){
+                sender.replyNotFound(`No countries with id ${countryId} were found.`);
+                return;
+            }    
+
             await country.remove();
             sender.replySuccess("Country removed successfuly");    
         };

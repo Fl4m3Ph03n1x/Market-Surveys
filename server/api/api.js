@@ -47,7 +47,29 @@ module.exports = (function() {
     api.get("/", (req, res) => {
         res.redirect("/makert-surveys-api/docs/api/index.html");
     });
-
+    
+    api.patch("/Countries/:id", (req, res) => {
+        const countryId = req.params.id;
+        const countryJSON = req.body;
+        const sender = replyFactory(res);
+        const options = {
+            new: true,
+            runValidators: true
+        };
+        
+        Country.findByIdAndUpdate(countryId, countryJSON, options)
+            .then(updatedCountry => {
+                
+                if(updatedCountry == null){
+                    sender.replyNotFound(`No countries with id ${countryId} were found.`);
+                    return;
+                }
+                
+                sender.replySuccess(updatedCountry);
+            })
+            .catch(sender.replyInternalServerError);
+    });
+    
     api.delete("/Countries/:id", (req, res)=> {
         const sender = replyFactory(res);
         const countryId = req.params.id;
